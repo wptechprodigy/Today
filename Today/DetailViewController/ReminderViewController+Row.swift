@@ -12,6 +12,7 @@ extension ReminderViewController {
     // MARK: - Row Details
 
     enum Row: Hashable {
+        case header(String)
         case viewDate
         case viewNotes
         case viewTime

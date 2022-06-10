@@ -11,8 +11,8 @@ class ReminderViewController: UICollectionViewController {
 
     // MARK: - Type Definition
 
-    private typealias DataSource = UICollectionViewDiffableDataSource<Int, Row>
-    private typealias Snapshot = NSDiffableDataSourceSnapshot<Int, Row>
+    private typealias DataSource = UICollectionViewDiffableDataSource<Section, Row>
+    private typealias Snapshot = NSDiffableDataSourceSnapshot<Section, Row>
 
     // MARK: - Properties
 
@@ -44,7 +44,19 @@ class ReminderViewController: UICollectionViewController {
 
         configureDataSource()
         navigationItem.title = NSLocalizedString("Reminder", comment: "Reminder view controller")
-        updateSnapshot()
+        navigationItem.rightBarButtonItem = editButtonItem
+
+        updateSnapshotForViewing()
+    }
+
+    override func setEditing(_ editing: Bool, animated: Bool) {
+        super.setEditing(editing, animated: animated)
+        switch editing {
+            case true:
+                updateSnapshotForEditing()
+            case false:
+                updateSnapshotForViewing()
+        }
     }
 
     // MARK: - Text Selector
@@ -55,18 +67,30 @@ class ReminderViewController: UICollectionViewController {
             case .viewNotes: return reminder.notes
             case .viewTime: return reminder.dueDate.formatted(date: .omitted, time: .shortened)
             case .viewTitle: return reminder.title
+            default: return nil
         }
     }
 
     // MARK: - Cell Registeration
 
     func cellRegistrationHandler(cell: UICollectionViewListCell, indexPath: IndexPath, row: Row) {
-        var contentConfiguration = cell.defaultContentConfiguration()
-        contentConfiguration.text = text(for: row)
-        contentConfiguration.textProperties.font = UIFont.preferredFont(forTextStyle: row.textStyle)
-        contentConfiguration.image = row.image
+        let section = section(for: indexPath)
+        switch (section, row) {
+            case (_, .header(let title)):
+                var contentConfiguration = cell.defaultContentConfiguration()
+                contentConfiguration.text = title
+                cell.contentConfiguration = contentConfiguration
+            case (.view, _):
+                var contentConfiguration = cell.defaultContentConfiguration()
+                contentConfiguration.text = text(for: row)
+                contentConfiguration.textProperties.font = UIFont.preferredFont(forTextStyle: row.textStyle)
+                contentConfiguration.image = row.image
 
-        cell.contentConfiguration = contentConfiguration
+                cell.contentConfiguration = contentConfiguration
+            default:
+                fatalError("Unexpected combination of section and row")
+        }
+
         cell.tintColor = .todayPrimaryTint
     }
 
@@ -81,16 +105,34 @@ class ReminderViewController: UICollectionViewController {
 
     // MARK: - Snapshot
 
-    private func updateSnapshot() {
+    private func updateSnapshotForEditing() {
         var snapshot = Snapshot()
-        snapshot.appendSections([sectionIndex])
+        snapshot.appendSections([.title, .date, .notes])
+        snapshot.appendItems([.header(Section.title.name)], toSection: .title)
+        snapshot.appendItems([.header(Section.date.name)], toSection: .date)
+        snapshot.appendItems([.header(Section.notes.name)], toSection: .notes)
+        dataSource.apply(snapshot)
+    }
+
+    private func updateSnapshotForViewing() {
+        var snapshot = Snapshot()
+        snapshot.appendSections([.view])
         snapshot.appendItems([
+            .header(""),
             .viewTitle,
             .viewDate,
             .viewTime,
             .viewNotes
-        ], toSection: sectionIndex)
+        ], toSection: .view)
 
         dataSource.apply(snapshot)
+    }
+
+    private func section(for indexPath: IndexPath) -> Section {
+        let sectionNmuber = isEditing ? indexPath.section + 1 : indexPath.section
+        guard let section = Section(rawValue: sectionNmuber) else {
+            fatalError("Unable to find matching section")
+        }
+        return section
     }
 }
